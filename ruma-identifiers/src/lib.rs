@@ -29,7 +29,10 @@ pub use crate::{
     room_id_or_room_alias_id::RoomIdOrAliasId,
     room_version_id::RoomVersionId,
     server_name::{ServerName, ServerNameBox},
-    signing_key_id::SigningKeyId,
+    signatures::{
+        DeviceSignatures, DeviceSigningKeyId, EntitySignatures, KeyId, KeyName, KeyNameBox,
+        ServerSignatures, ServerSigningKeyId, ServerSigningKeyId, Signatures,
+    },
     user_id::UserId,
 };
 #[doc(inline)]
@@ -51,7 +54,7 @@ mod room_id;
 mod room_id_or_room_alias_id;
 mod room_version_id;
 mod server_name;
-mod signing_key_id;
+mod signatures;
 
 /// Check whether a given string is a valid server name according to [the specification][].
 ///
@@ -137,7 +140,7 @@ macro_rules! room_version_id {
     };
 }
 
-/// Compile-time checked `SigningKeyId` construction.
+/// Compile-time checked `ServerSigningKeyId` construction.
 #[macro_export]
 macro_rules! server_key_id {
     ($s:literal) => {

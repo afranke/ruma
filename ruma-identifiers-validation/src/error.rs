@@ -25,13 +25,10 @@ pub enum Error {
     /// The ID is missing the colon delimiter between localpart and server name.
     MissingDelimiter,
 
-    /// The ID is missing the colon delimiter between key algorithm and device ID.
-    MissingDeviceKeyDelimiter,
+    /// The ID is missing the colon delimiter between key algorithm and key identifier.
+    MissingKeyDelimiter,
 
-    /// The ID is missing the colon delimiter between key algorithm and version.
-    MissingSigningKeyDelimiter,
-
-    /// The ID is missing the correct leading sigil.
+    /// The ID is missing the leading sigil.
     MissingSigil,
 
     /// The key algorithm is not recognized.
@@ -47,9 +44,8 @@ impl Display for Error {
             Error::InvalidServerName => "server name is not a valid IP address or domain name",
             Error::MaximumLengthExceeded => "ID exceeds 255 bytes",
             Error::MissingDelimiter => "colon is required between localpart and server name",
-            Error::MissingDeviceKeyDelimiter => "colon is required between algorithm and device ID",
-            Error::MissingSigningKeyDelimiter => "colon is required between algorithm and version",
-            Error::MissingSigil => "leading sigil is incorrect or missing",
+            Error::MissingKeyDelimiter => "colon is required between algorithm and key identifier",
+            Error::MissingSigil => "leading sigil is missing",
             Error::UnknownKeyAlgorithm => "unknown key algorithm specified",
         };
 

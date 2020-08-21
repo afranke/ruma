@@ -87,8 +87,9 @@ pub fn server_key_id(input: TokenStream) -> TokenStream {
     let Input { dollar_crate, id } = parse_macro_input!(input as Input);
     assert!(signing_key_id::validate(&id.value()).is_ok(), "Invalid server_key_id");
 
+    // TODO: Figure out what to do with this import...
     let output = quote! {
-        <#dollar_crate::SigningKeyId as ::std::convert::TryFrom<&str>>::try_from(#id).unwrap()
+        <#dollar_crate::ServerSigningKeyId as ::std::convert::TryFrom<&str>>::try_from(#id).unwrap()
     };
 
     output.into()
@@ -114,7 +115,7 @@ pub fn signing_key_id(input: TokenStream) -> TokenStream {
     assert!(signing_key_id::validate(&id.value()).is_ok(), "Invalid signing_key_id");
 
     let output = quote! {
-        <#dollar_crate::SigningKeyId as ::std::convert::TryFrom<&str>>::try_from(#id).unwrap()
+        <#dollar_crate::ServerSigningKeyId as ::std::convert::TryFrom<&str>>::try_from(#id).unwrap()
     };
 
     output.into()

@@ -1,14 +1,9 @@
 //! Matrix device identifiers.
 
-use std::{
-    fmt::{self, Display},
-    mem,
-};
-
 #[cfg(feature = "rand")]
 use crate::generate_localpart;
 
-/// A Matrix device ID.
+/// A Matrix key ID.
 ///
 /// Device identifiers in Matrix are completely opaque character sequences. This type is provided
 /// simply for its semantic value.
@@ -17,64 +12,14 @@ use crate::generate_localpart;
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent, crate = "serde"))]
 pub struct DeviceId(str);
 
-/// An owned device identifier.
-pub type DeviceIdBox = Box<DeviceId>;
+opaque_identifier!(DeviceId, DeviceIdBox, "device ID");
 
 impl DeviceId {
-    #[allow(clippy::transmute_ptr_to_ptr)]
-    fn from_borrowed(s: &str) -> &Self {
-        unsafe { mem::transmute(s) }
-    }
-
-    fn from_owned(s: Box<str>) -> Box<Self> {
-        unsafe { mem::transmute(s) }
-    }
-
-    fn into_owned(self: Box<Self>) -> Box<str> {
-        unsafe { mem::transmute(self) }
-    }
-
     /// Generates a random `DeviceId`, suitable for assignment to a new device.
     #[cfg(feature = "rand")]
     #[cfg_attr(docsrs, doc(cfg(feature = "rand")))]
     pub fn new() -> Box<Self> {
         Self::from_owned(generate_localpart(8))
-    }
-
-    /// Creates a string slice from this `DeviceId`.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-
-    /// Creates a byte slice from this `DeviceId`.
-    pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
-}
-
-impl Clone for Box<DeviceId> {
-    fn clone(&self) -> Self {
-        (**self).to_owned()
-    }
-}
-
-impl ToOwned for DeviceId {
-    type Owned = Box<DeviceId>;
-
-    fn to_owned(&self) -> Self::Owned {
-        Self::from_owned(self.0.to_owned().into_boxed_str())
-    }
-}
-
-impl From<&DeviceId> for Box<DeviceId> {
-    fn from(id: &DeviceId) -> Self {
-        id.to_owned()
-    }
-}
-
-impl AsRef<str> for DeviceId {
-    fn as_ref(&self) -> &str {
-        self.as_str()
     }
 }
 
