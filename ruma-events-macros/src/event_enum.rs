@@ -1,10 +1,10 @@
 //! Implementation of event enum and event content enum macros.
 
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{Attribute, Ident, LitStr};
 
-use crate::event_parse::{EventEnumInput, EventKind, EventKindVariation};
+use crate::event_parse::{EventEnumEntry, EventEnumInput, EventKind, EventKindVariation};
 
 fn is_non_stripped_room_event(kind: &EventKind, var: &EventKindVariation) -> bool {
     matches!(kind, EventKind::Message | EventKind::State)
@@ -47,13 +47,14 @@ pub fn expand_event_enum(input: EventEnumInput) -> syn::Result<TokenStream> {
     let import_path = crate::import_ruma_events();
 
     let name = &input.name;
-    let events = &input.events;
     let attrs = &input.attrs;
-    let variants = events.iter().map(to_camel_case).collect::<syn::Result<Vec<_>>>()?;
+    let events: Vec<_> = input.events.iter().map(|entry| entry.ev_type.clone()).collect();
+    let variants: Vec<_> =
+        input.events.iter().map(EventEnumEntry::to_variant).collect::<syn::Result<_>>()?;
 
     let event_enum = expand_any_with_deser(
         name,
-        events,
+        &events,
         attrs,
         &variants,
         &EventKindVariation::Full,
@@ -62,7 +63,7 @@ pub fn expand_event_enum(input: EventEnumInput) -> syn::Result<TokenStream> {
 
     let sync_event_enum = expand_any_with_deser(
         name,
-        events,
+        &events,
         attrs,
         &variants,
         &EventKindVariation::Sync,
@@ -71,7 +72,7 @@ pub fn expand_event_enum(input: EventEnumInput) -> syn::Result<TokenStream> {
 
     let stripped_event_enum = expand_any_with_deser(
         name,
-        events,
+        &events,
         attrs,
         &variants,
         &EventKindVariation::Stripped,
@@ -80,16 +81,16 @@ pub fn expand_event_enum(input: EventEnumInput) -> syn::Result<TokenStream> {
 
     let initial_event_enum = expand_any_with_deser(
         name,
-        events,
+        &events,
         attrs,
         &variants,
         &EventKindVariation::Initial,
         &import_path,
     );
 
-    let redacted_event_enums = expand_any_redacted(name, events, attrs, &variants, &import_path);
+    let redacted_event_enums = expand_any_redacted(name, &events, attrs, &variants, &import_path);
 
-    let event_content_enum = expand_content_enum(name, events, attrs, &variants, &import_path);
+    let event_content_enum = expand_content_enum(name, &events, attrs, &variants, &import_path);
 
     Ok(quote! {
         #event_enum
@@ -110,7 +111,7 @@ fn expand_any_with_deser(
     kind: &EventKind,
     events: &[LitStr],
     attrs: &[Attribute],
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     var: &EventKindVariation,
     import_path: &TokenStream,
 ) -> Option<TokenStream> {
@@ -193,17 +194,17 @@ fn expand_any_with_deser(
 fn expand_conversion_impl(
     kind: &EventKind,
     var: &EventKindVariation,
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> Option<TokenStream> {
     let ident = kind.to_event_enum_ident(var)?;
     let variants = &variants
         .iter()
-        .filter(|id| {
+        .filter(|v| {
             // We filter this variant out only for non redacted events.
             // The type of the struct held in the enum variant is different in this case
             // so we construct the variant manually.
-            !(id.to_string().as_str() == "RoomRedaction"
+            !(v.ident == "RoomRedaction"
                 && matches!(var, EventKindVariation::Full | EventKindVariation::Sync))
         })
         .collect::<Vec<_>>();
@@ -298,7 +299,7 @@ fn expand_any_redacted(
     kind: &EventKind,
     events: &[LitStr],
     attrs: &[Attribute],
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> TokenStream {
     use EventKindVariation as V;
@@ -339,7 +340,7 @@ fn expand_content_enum(
     kind: &EventKind,
     events: &[LitStr],
     attrs: &[Attribute],
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> TokenStream {
     let ident = kind.to_content_enum();
@@ -407,7 +408,7 @@ fn expand_redact(
     ident: &Ident,
     kind: &EventKind,
     var: &EventKindVariation,
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> Option<TokenStream> {
     if let EventKindVariation::Full | EventKindVariation::Sync | EventKindVariation::Stripped = var
@@ -636,7 +637,7 @@ fn marker_traits(kind: &EventKind, import_path: &TokenStream) -> TokenStream {
 fn accessor_methods(
     kind: &EventKind,
     var: &EventKindVariation,
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> Option<TokenStream> {
     use EventKindVariation as V;
@@ -720,7 +721,7 @@ fn inner_enum_idents(kind: &EventKind, var: &EventKindVariation) -> (Option<Iden
 fn redacted_accessor_methods(
     kind: &EventKind,
     var: &EventKindVariation,
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> Option<TokenStream> {
     // this will never fail as it is called in `expand_any_with_deser`.
@@ -830,7 +831,7 @@ fn generate_accessor(
     kind: &EventKind,
     var: &EventKindVariation,
     is_event_kind: EventKindFn,
-    variants: &[Ident],
+    variants: &[EventEnumVariant],
     import_path: &TokenStream,
 ) -> TokenStream {
     if is_event_kind(kind, var) {
@@ -873,5 +874,27 @@ fn field_return_type(
         }
         "unsigned" => quote! { #import_path::Unsigned },
         _ => panic!("the `ruma_events_macros::event_enum::EVENT_FIELD` const was changed"),
+    }
+}
+
+struct EventEnumVariant {
+    pub attrs: Vec<Attribute>,
+    pub ident: Ident,
+}
+
+impl ToTokens for EventEnumVariant {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for attr in &self.attrs {
+            attr.to_tokens(tokens);
+        }
+        self.ident.to_tokens(tokens);
+    }
+}
+
+impl EventEnumEntry {
+    fn to_variant(&self) -> syn::Result<EventEnumVariant> {
+        let attrs = self.attrs.clone();
+        let ident = to_camel_case(&self.ev_type)?;
+        Ok(EventEnumVariant { attrs, ident })
     }
 }
