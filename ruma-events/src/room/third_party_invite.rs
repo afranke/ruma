@@ -17,6 +17,7 @@ pub type ThirdPartyInviteEvent = StateEvent<ThirdPartyInviteEventContent>;
 #[ruma_event(type = "m.room.third_party_invite")]
 pub struct ThirdPartyInviteEventContent {
     /// A user-readable string which represents the user who has been invited.
+    #[serde(default)]
     pub display_name: String,
 
     /// A URL which can be fetched to validate whether the key has been revoked.
