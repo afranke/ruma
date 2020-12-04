@@ -40,6 +40,10 @@ impl From<Tags> for TagEventContent {
 #[cfg_attr(not(feature = "unstable-exhaustive-types"), non_exhaustive)]
 pub struct TagInfo {
     /// Value to use for lexicographically ordering rooms with this tag.
+    #[cfg_attr(
+        feature = "unstable-synapse-quirks",
+        serde(deserialize_with = "ruma_serde::float_or_string_to_float")
+    )]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order: Option<f64>,
 }

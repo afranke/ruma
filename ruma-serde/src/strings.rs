@@ -33,6 +33,52 @@ where
     }
 }
 
+// Helper type for deserialize_float_or_string_to_float
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum FloatOrString<'a> {
+    Num(f64),
+    Str(&'a str),
+}
+
+impl TryFrom<FloatOrString<'_>> for f64 {
+    type Error = std::num::ParseFloatError;
+
+    fn try_from(input: FloatOrString) -> Result<Self, Self::Error> {
+        match input {
+            FloatOrString::Num(n) => Ok(n),
+            FloatOrString::Str(string) => string.parse(),
+        }
+    }
+}
+
+/// Take either a float number or a string and deserialize to a float number.
+///
+/// To be used like this:
+/// `#[serde(deserialize_with = "float_or_string_to_float")]`
+pub fn float_or_string_to_float<'de, D>(de: D) -> Result<f64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    FloatOrString::deserialize(de)?.try_into().map_err(D::Error::custom)
+}
+
+/// Take a BTreeMap with values of either a float number or a string and deserialize
+/// those to float numbers.
+///
+/// To be used like this:
+/// `#[serde(deserialize_with = "btreemap_float_or_string_to_f64_values")]`
+pub fn btreemap_float_or_string_to_float_values<'de, D, T>(de: D) -> Result<BTreeMap<T, f64>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Ord,
+{
+    BTreeMap::<T, FloatOrString>::deserialize(de)?
+        .into_iter()
+        .map(|(k, v)| v.try_into().map(|n| (k, n)).map_err(D::Error::custom))
+        .collect()
+}
+
 // Helper type for deserialize_int_or_string_to_int
 #[derive(Deserialize)]
 #[serde(untagged)]
